@@ -1,0 +1,153 @@
+class Card
+  attr_accessor :suit, :rank, :name, :hidden, :color
+  include Comparable
+  @@names = {1 => "A", 11 => "J", 12 => "Q", 13 => "K" } #These classes allow for much easier functioning later in the prograam
+  @@counter = 0 #They're  also the leftovers of the code kata that gave me the idea to build a solitaire program :I
+  def initialize(suit, rank)
+    @suit = suit
+    @rank = rank
+    @name = [@@names[@rank] || @rank, "of", @suit].join #Assigns the special names such as King or Ace to cards with the associated rank.
+		@color = "red"
+		@color = "black" if suit == :C or suit == :S
+		@hidden = false
+  end
+
+  def <=>(other) #I'm not super sure if this is still necessary to keep  in, but I'm gonna leave it just in case.
+    self.rank <=> other.rank
+  end
+	
+	def to_s #I have no idea why this method is still necessary, but when it's not here, the cards in the display don't show their names, only the ID Ruby assigns to them (Long numbers!)
+		"#{@name}"
+	end
+end
+
+class Deck
+  $deck = []
+  attr_reader :cards #So we can easily access the cards within the deck, later on. This honestly probably would have been better off as a lambda that creates an array of cards, but I'm leaving it like this just in case.
+	
+  def initialize #This is made of lambdas because II was just /determined/ to use lambdas, because I don't use them enough, I think.
+    @cards = []
+    newsuit = lambda {|suit| (1..13).each{|woo| @cards << Card.new(suit, woo)}} #Card is made, and then is shuffled into the @cards variable for the deck, which is made up of an array.
+    newsuit.call(:C) #One lambda call for each suit!
+    newsuit.call(:D)
+    newsuit.call(:H)
+    newsuit.call(:S)
+		@cards.shuffle! #A preliminary shuffling, just in case!
+  end
+  
+  def shuffle #So that we don't have to do deckname.cards.shuffle, later on. Because that's just silly!
+    @cards.shuffle!
+  end
+end
+
+dealcounter = 0 #A bunch of variables defined ahead of time, so that various if/else statements and such don't throw out errors because they're running before I wanted them to.
+solitaire = [] #Is there a better way to avoid that...? Because this bigass stack of variables just ANNOYS me!
+useddeck = []
+choice = "placeholder"
+loopcounter = 0
+$drawcounter = 0
+displayarray = nil
+foundation = { "C" => [Card.new(:C, 0)], "D" => [Card.new(:D, 0)], "H" => [Card.new(:H, 0)], "S" => [Card.new(:S, 0)] } #Defines the foundation, which is pretty important.
+puts "Welcome to Solitaire! Use the \"help\" command if you need, well, help!"
+choicedeck = "UNINITIATED!"
+storeddeck = []
+until choice =~ /end/i
+	puts "#{choicedeck.length} cards remaining in the choice deck!"
+	if $drawcounter == 1 #This way, it doesn't try to display the choicedeck parts before there's anything there.
+		$displaydeck.each{ |draw| print draw.name, "  "} ; puts "\n"
+	end
+	if dealcounter == 1 #
+		stackcounter = 1
+		displayarray = [""]
+		$stacks.each do |places, values|
+			displayarray << "#{stackcounter}:" #These two lines are what enables the labelling of each stack so that it's easier on players who don't want to count the rows every time they wanna move a card. 
+			stackcounter += 1
+			displayarray << "empty !\n" and next if values.empty? #So the player KNOWS when an array is empty.
+			values.last.hidden=(false) if values.last.hidden and !values.empty? #Sets the last card in a stack to unhidden if it is the last card and the stack isn't empty.
+			values.each { |card| displayarray << card unless card.hidden ; displayarray << "hidden" if card.hidden } #Displays the card's name, unless it's hidden. A little proud of this, not gonna lie.
+			displayarray << "\n"
+		end
+		puts displayarray.join("  ") 
+	end
+	puts "What would you like to do?" if loopcounter > 0 #The initial request for input, which powers the whole until loop.
+	choice = gets.chomp
+	case choice
+	when /help/i #Just a simple "help" command.
+		puts "The foundation is the area you put cards, starting with aces, in to win. \n The stacks are the seven groups of cards that take up most of the display area. \n The Choice or Drawing deck is the group of three visible cards and up to 24 hidden cards that you can draw from."
+		puts "The following functions are available: \nnew: Start a new game, with a new deck and everything!\nmove:move a card from the choice deck or the stacks into a new stack or the foundations\nview:Look at the foundations\ndraw:draw three more cards from the Drawing Deck\nWin:Check if you have the required conditions to win the game!"
+	when /move/i 
+		puts "Move from which stack? Just put the number of the stack from which you wish to move a card!" 
+		puts "If you wish to move from the drawing deck, just type \"deck\"."
+		movefromchoice = gets.chomp
+		if movefromchoice =~ /deck/i
+			puts "moved from deck"
+			movefrom = $displaydeck #Because only the last card from the displaydeck can be used, we don't have to choose a specific card from it to be moved.
+			depth = 1 #Because otherwise it would use the depth value from the last move made.
+			from = "deck"
+		elsif movefromchoice.to_i != 0
+			movefrom = $stacks[movefromchoice.to_i] 
+			from = "stacks"
+			puts "How deep into this stack would you like to move from? Input a number equal to the desired card's place in the stack." #This language could probably be refined
+			depth = gets.chomp.to_i 
+		end
+		puts "Move to where? Moving to a specific stack is still the number of the stack, and moving to the foundations is \"foundation*Suit inititial*\""
+		movetochoice = gets.chomp
+		if movetochoice =~ /foundation[CDHS]/i 
+			moveto = foundation[movetochoice[-1].capitalize].last #Calls up the last element of the foundations' hash's key that is equivalent to the capitalized last letter of the movetochoice input
+			foundation[movetochoice[-1].capitalize] << movefrom.pop if moveto.suit == movefrom.last.suit && moveto.rank == movefrom.last.rank - 1 #moves the card to the desired foundation if it is one rank higher and of the same suit as the last card in that foundation
+		elsif movetochoice.to_i != 0
+			moveto = $stacks[movetochoice.to_i]
+			movetochoice = movetochoice.to_i
+			if moveto.empty? and movefrom[-depth].rank == 13 #Allows moving kings to empty stacks
+				$stacks[movetochoice] << $stacks[movefromchoice.to_i].pop(-depth) 
+			elsif moveto.last.color != movefrom[-depth].color and moveto.last.rank == movefrom[-depth].rank + 1 and !movefrom[-depth].hidden #Allows moving a card to a stack if that card is a different color and one rank less than the last card in the stack
+				$stacks[movetochoice] << $stacks[movefromchoice.to_i].pop(depth) if from == "stacks" #Two different moving lines, because two possible sources.
+				$stacks[movetochoice] << $displaydeck.pop if from == "deck"
+			else 
+				puts "I'm sorry, that move is illegal! No dice, pal!" #So that there's an error message if the player tries to make an illegal move.
+			end
+			$stacks[movetochoice].flatten! #This so that the array returned by .pop(integer) is reduced to being more cards in the stack's arrays, so that the various display lines are capable of using card methods where needed.
+		end
+	when /new/i #Starts up a new game.
+		if solitaire.is_a? Deck #Since solitaire is initially set to an empty array, this checks if solitaire is still that empty array, and, if not, prints a confirmation message.
+			puts "You sure? That'll wipe everything you have here! (yes/no)"
+			new = gets.chomp
+		else 
+			new = "yes"
+		end
+		solitaire = Deck.new if new =~ /yes/i
+		playdeck = solitaire.shuffle.first(28)  #The playdeck, from which stacks will be made, is made up of 28 cards, just like in the solitaire that comes with windows
+		solitaire.cards.slice!(0, 28) #Those same 28 cards are now removed, so that the choicedeck can be made from the leftovers.
+		playdeck.each { |card| card.hidden=(true) } #Sets the stacks' cards' hidden variables to true, so that they will show up as "hidden" in the stacks display
+		choicedeck = solitaire.cards #the choicedeck is made up of the leftovers from the stacks being made
+		$displaydeck = []
+		$stacks = Hash.new 
+		counter = 0
+		(1..7).each do |count| #This so that seven stacks are created, and each one has one more card than the last.
+			$stacks[count] = []
+			count.times do |yar|
+				$stacks[count] << (playdeck[counter])
+				counter += 1
+			end
+		end
+		dealcounter = 1
+	when /view/i #Displays the foundations
+			foundation.each{ |court, card| puts card.last.name }
+	when /draw/i #draws three new cards from the choice deck, and puts them in the display.
+		useddeck << $displaydeck
+		choicedeck = useddeck.flatten and useddeck = [] if choicedeck == []
+		$displaydeck = choicedeck.slice!(0, 3)
+		$displaydeck.flatten!
+		$drawcounter = 1 #Fix this later, yo!
+	when /adminview/i
+		view = gets.chomp
+		$stacks[view.to_i].each{ |waugh| puts waugh.name}
+	when /win/i #All of these whens are regular expressions so that players can type in the appropriate command capitalized or not and it will still express the correct code.
+		wincount = 0
+		foundation.each{ |suit, cards| wincount += 4 if suit.length == 13}
+		puts "Congratulations, you win!" and choice = "end" if wincount == 4
+		puts "Sorry, you don't win, not yet at least!" if wincount < 4
+	end
+	loopcounter += 1
+end
+#TODO: Comment
