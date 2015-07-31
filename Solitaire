@@ -7,8 +7,7 @@ class Card
     @suit = suit
     @rank = rank
     @name = [@@names[@rank] || @rank, "of", @suit].join #Assigns the special names such as King or Ace to cards with the associated rank.
-		@color = "red"
-		@color = "black" if suit == :C or suit == :S
+		@color = if suit == :C or suit == :S ? "black" : "red"
 		@hidden = false
   end
 
